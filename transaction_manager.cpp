@@ -1,9 +1,11 @@
 #include "transaction_manager.hpp"
+#include <unistd.h>
+#include <thread>
 
 /*
 TO be implemented -
     === Important - research pending ===
-    -> Snapshot creation
+    -> Optimized snapshot creation
     -> Read Commited - (Deadlock detection)
 
     === Small tasks ===
@@ -19,37 +21,39 @@ TransactionManager::TransactionManager(Database& db, int il = READ_UNCOMMITED): 
 }
 
 template<typename... Args>
-void TransactionManager::read(Args... args) {
+int TransactionManager::read(Args... args) {
     switch(isolation_level) {
         case READ_UNCOMMITED:
-            db.read(args...);
+            return db.read(args...);
             break;
         case READ_COMMITED:
-            db.read_commit(args...);
+            return db.read_commit(args...);
             break;
         case SERIALIZABLE:
-            db.read(args...);
+            return db.read(args...);
             break;
         case REPEATABLE_READ:
-            snapshot.read(args...);
+            return snapshot.read(args...);
             break;
     }
+
+    return 0;
 }
 
 template<typename... Args>
 void TransactionManager::write(Args... args) {
     switch(isolation_level) {
         case READ_UNCOMMITED:
-            db.write(args);
+            db.write(args...);
             break;
         case READ_COMMITED:
-            db.write(args);
+            db.write(args...);
             break;
         case SERIALIZABLE:
-            db.write(args);
+            db.write(args...);
             break;
         case REPEATABLE_READ:
-            db.write(args);
+            snapshot.write(args...);
             break;
     }
 }
@@ -60,8 +64,53 @@ void TransactionManager::commit() {
     }
 }
 
+Database db;
+
+void Demo1() {  // Read Uncommited
+    TransactionManager t1(db), t2(db);
+
+    cout << t1.read("key1") << endl;
+    cout << "2: " <<  t1.read("key1") << endl;
+
+    t1.write("key1", 200, 1);
+
+    cout << t1.read("key1") << endl;
+    cout << "2: " <<  t1.read("key1") << endl;
+}
+
+void demo2_thread() {
+    TransactionManager t1(db, SERIALIZABLE);
+    cout << "2: " <<  t1.read("key1") << endl;
+    sleep(5);
+    cout << "2: " << t1.read("key1") << endl;
+}
+
+void Demo2() {  // Serializable
+    TransactionManager t1(db, SERIALIZABLE);
+    thread t = thread(demo2_thread);
+    cout << t1.read("key1") << endl;
+    sleep(5);
+    t1.write("key1", 200, 1);
+    cout << t1.read("key1") << endl;
+    t1.commit();
+    t.join();
+    return;
+}
+
+void Demo3() {  // Repeatable Read
+    TransactionManager t1(db, REPEATABLE_READ), t2(db, REPEATABLE_READ);
+
+    cout << t1.read("key1") << endl;
+    cout << "2: " <<  t2.read("key1") << endl;
+
+    t1.write("key1", 200, 1);
+
+    cout << t1.read("key1") << endl;
+    cout << "2: " <<  t2.read("key1") << endl;
+}
+
 int main() {
-    Database db;
+    Demo3();
 
     return 0;
 }

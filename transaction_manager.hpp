@@ -20,10 +20,9 @@ using namespace std;
 // Reference database (Implemented here completely, will be replaced by TOY DBMS)
 class Database {
     private:
-        map<string, int> data;           // Main data store
-        map<string, vector<int>> deltas; // Delta changes per key
+        map<string, int> data;          // Main data store
         mutex db_mutex;
-        int _serializable_ts = 0; // Timestamp for Serializable transactions
+        int _serializable_ts = 0;       // Count for serializable
     
     public:
         Database() {
@@ -53,17 +52,12 @@ class Database {
 
         void write(const string& key, int value, int transaction_id) {
             if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
-            if (deltas.find(key) == deltas.end()) {
-                deltas[key] = vector<int>();
-            }
-            deltas[key].push_back(value); // Store delta
             data[key] = value;            // Update main data
         }
 
         void operator=(const Database& other) {
             lock_guard<mutex> lock(db_mutex);
             data = other.data; // Copy main data
-            deltas = other.deltas; // Copy deltas
         }
 };
 
@@ -78,12 +72,12 @@ class TransactionManager {
         TransactionManager(Database&, int);
         
         template<typename... Args>
-        void read(Args... args);
+        int read(Args... args);
         
         template<typename... Args>
-        void TransactionManager::write(Args... args);
+        void write(Args... args);
 
-        void TransactionManager::commit();
+        void commit();
 };
 
 #endif
