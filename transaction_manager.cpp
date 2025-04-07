@@ -5,8 +5,8 @@
 /*
 TO be implemented -
     === Important - research pending ===
-    -> Optimized snapshot creation
     -> Read Commited - (Deadlock detection)
+    -> Repeatable Read - (Optimized snapshot creation, Commit)
 
     === Small tasks ===
     -> Rollback
