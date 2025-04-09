@@ -20,14 +20,15 @@ using namespace std;
 // Reference database (Implemented here completely, will be replaced by TOY DBMS)
 class Database {
     private:
-        map<string, int> data;          // Main data store
+        map<int, int> data;          // Main data store
+        
         mutex db_mutex;
         int _serializable_ts = 0;       // Count for serializable
     
     public:
         Database() {
-            data["key1"] = 100;
-            data["key2"] = 200;
+            data[1] = 100;
+            data[2] = 200;
         }
 
         void lock_mutex_s(){
@@ -40,17 +41,17 @@ class Database {
             db_mutex.unlock();
         }
 
-        int read(const string& key) {
+        int read(const int& key) {
             if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
             return data[key];
         }
 
-        int read_commit(const string& key) {
+        int read_commit(const int& key) {
             if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
             return data[key];
         }
 
-        void write(const string& key, int value, int transaction_id) {
+        void write(const int& key, int value, int transaction_id) {
             if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
             data[key] = value;            // Update main data
         }

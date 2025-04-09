@@ -1,5 +1,5 @@
 run:
-	g++ transaction_manager.cpp -o tm
+	g++ mainfile.cpp -o tm
 	./tm
 
 clean:
