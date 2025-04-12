@@ -20,7 +20,7 @@ using namespace std;
 // Special structure implemented for database
 class Database_Struct {
     public:
-        int recent_write;
+        int recent_write;               // Change it to special structure
         map<int, int> commit_value;
 
         Database_Struct(): recent_write(-1) {
@@ -73,6 +73,11 @@ class Database {
 
         }
 
+        void finish_transaction(int transaction_id) {
+            lock_guard<mutex> lock(db_mutex);
+            last_transaction = max(transaction_id, last_transaction);
+        }
+
         // int read(const int& key) {
         //     if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
         //     return data[key][recent_commit];
@@ -100,6 +105,8 @@ class TransactionManager {
         Database &db;           // Global database
         int isolation_level;
         int last_commit_transaction;
+
+        int finished;
 
         map<int, int> change_logs;
         map<int, int> last_write;
