@@ -13,12 +13,9 @@ TO be implemented -
     -> Repeatable Read - (Optimized snapshot creation, Commit)
 */
 
-TransactionManager::TransactionManager(Database& db, int il = READ_UNCOMMITED): db(db),  isolation_level(il) {
-    if (il == REPEATABLE_READ) {
-        snapshot = db;
-    } else if (il == SERIALIZABLE) {
-        db.lock_mutex_s();
-    }
+TransactionManager::TransactionManager(Database& db, int il = READ_UNCOMMITED): db(db),  isolation_level(il), last_commit_transaction(0) {
+    transaction_id = db.get_transaction();
+    if (il == SERIALIZABLE) last_commit_transaction = db.get_last_transact();
 }
 
 template<typename... Args>
@@ -28,39 +25,59 @@ int TransactionManager::read(Args... args) {
             return db.read(args...);
             break;
         case READ_COMMITED:
-            return db.read_commit(args...);
+            return db.read(args...);
             break;
         case SERIALIZABLE:
             return db.read(args...);
             break;
         case REPEATABLE_READ:
-            return snapshot.read(args...);
+            return db.read(args...);
             break;
     }
 
     return 0;
 }
 
-template<typename... Args>
-void TransactionManager::write(Args... args) {
+void TransactionManager::write(int key, int value) {
     switch(isolation_level) {
         case READ_UNCOMMITED:
-            db.write(args...);
+            db.write(key, value, transaction_id);
             break;
         case READ_COMMITED:
-            db.write(args...);
+            last_write[key] = db.fetch_last_write(key);
+            change_logs[key] = value;
             break;
         case SERIALIZABLE:
-            db.write(args...);
+            change_logs[key] = value;
             break;
         case REPEATABLE_READ:
-            snapshot.write(args...);
+            change_logs[key] = value;
             break;
     }
 }
 
 void TransactionManager::commit() {
-    if (isolation_level == SERIALIZABLE) {
-        db.unlock_mutex_s();
+    switch(isolation_level) {
+        case READ_UNCOMMITED:
+            break;
+        case READ_COMMITED:
+            break;
+        case SERIALIZABLE:
+            break;
+        case REPEATABLE_READ:
+            break;
+    }
+}
+
+void TransactionManager::rollback() {
+    switch(isolation_level) {
+        case READ_UNCOMMITED:
+            break;
+        case READ_COMMITED:
+            break;
+        case SERIALIZABLE:
+            break;
+        case REPEATABLE_READ:
+            break;
     }
 }

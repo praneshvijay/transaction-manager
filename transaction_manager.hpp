@@ -17,57 +17,92 @@ using namespace std;
 #define REPEATABLE_READ 102
 #define SERIALIZABLE 103
 
+// Special structure implemented for database
+class Database_Struct {
+    public:
+        int recent_write;
+        map<int, int> commit_value;
+
+        Database_Struct(): recent_write(-1) {
+            commit_value.clear();
+        }
+};
+
 // Reference database (Implemented here completely, will be replaced by TOY DBMS)
 class Database {
     private:
-        map<int, int> data;          // Main data store
+        map<int, Database_Struct> data;
+        int last_transaction;
+        int next_transaction;   // Global transaction ID
         
-        mutex db_mutex;
-        int _serializable_ts = 0;       // Count for serializable
+        mutex db_mutex, trans_id_mutex;
     
     public:
-        Database() {
-            data[1] = 100;
-            data[2] = 200;
-        }
+        Database(): last_transaction(-1), next_transaction(1) {}
 
-        void lock_mutex_s(){
-            _serializable_ts++;
-            db_mutex.lock();
-        }
-
-        void unlock_mutex_s(){
-            _serializable_ts--;
-            db_mutex.unlock();
-        }
-
-        int read(const int& key) {
-            if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
-            return data[key];
-        }
-
-        int read_commit(const int& key) {
-            if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
-            return data[key];
-        }
-
-        void write(const int& key, int value, int transaction_id) {
-            if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
-            data[key] = value;            // Update main data
-        }
-
-        void operator=(const Database& other) {
+        int get_transaction() {
             lock_guard<mutex> lock(db_mutex);
-            data = other.data; // Copy main data
+            return next_transaction++;
         }
+
+        int get_last_transact() {
+            lock_guard<mutex> lock(db_mutex);
+            return last_transaction;
+        }
+
+        int read() {
+            lock_guard<mutex> lock(db_mutex);
+        }
+
+        void write(int key, int value, int transact_id) {
+            lock_guard<mutex> lock(db_mutex);
+            data[key].commit_value[transact_id] = value;
+            data[key].recent_write = transact_id;
+        }
+
+        int fetch_last_write(int key) {
+            lock_guard<mutex> lock(db_mutex);
+            return data[key].recent_write;
+        }
+
+        void commit() {
+
+        }
+
+        void rollback() {
+
+        }
+
+        // int read(const int& key) {
+        //     if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
+        //     return data[key][recent_commit];
+        // }
+
+        // int read_commit(const int& key) {
+        //     if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
+        //     return data[key][recent_commit];
+        // }
+
+        // void write(const int& key, int value, int transaction_id) {
+        //     if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
+        //     data[key][recent_commit] = value;            // Update main data
+        // }
 };
+
+void GarbageCollector() {
+    // Implemented later for database
+}
 
 // Transaction Manager class
 class TransactionManager {
     private:
-        Database &db; // Global database
-        Database snapshot; // CoW (Implemented as a complete copy)
+        int transaction_id;
+        Database &db;           // Global database
         int isolation_level;
+        int last_commit_transaction;
+
+        map<int, int> change_logs;
+        map<int, int> last_write;
     
     public:
         TransactionManager(Database&, int);
@@ -75,10 +110,11 @@ class TransactionManager {
         template<typename... Args>
         int read(Args... args);
         
-        template<typename... Args>
-        void write(Args... args);
+        void write(int, int);
 
         void commit();
+
+        void rollback();
 };
 
 #endif
