@@ -39,13 +39,30 @@ int TransactionManager::read(int key) {
             return val.first;
         case READ_COMMITED:
             pair<int, int> val = db.read(key, -2);
+            
+            if (val.second == last_write[key]) {
+                auto it = change_logs.lower_bound(key);
+                if (it != change_logs.end()) val.first = change_logs[key];
+            }
+
             return val.first;
-            break;
         case SERIALIZABLE:
-            // return db.read(key, transaction_id);
-            break;
+            pair<int, int> val = db.read(key, transaction_id);
+            
+            if (val.second) {
+                auto it = change_logs.lower_bound(key);
+                if (it != change_logs.end()) val.first = change_logs[key];
+            }
+
+            return val.first;
         case REPEATABLE_READ:
-            // return db.read(key, transaction_id);
+            pair<int, int> val;
+            auto it = change_logs.lower_bound(key);
+            if (it != change_logs.end()) val.first = change_logs[key];
+            else {
+                val = db.read(key, last_commit_transaction);
+            }
+
             break;
     }
 
@@ -74,23 +91,6 @@ void TransactionManager::write(int key, int value) {
 
 void TransactionManager::commit() {
     if (finished) return;
-
-    // switch(isolation_level) {
-    //     case READ_UNCOMMITED:
-    //         break;
-    //     case READ_COMMITED:
-    //         break;
-    //     case SERIALIZABLE:
-    //         for(auto &[x, y]: change_logs) {
-    //             db.write(x, y, transaction_id);
-    //         }
-    //         break;
-    //     case REPEATABLE_READ:
-    //         for(auto &[x, y]: change_logs) {
-    //             db.write(x, y, transaction_id);
-    //         }
-    //         break;
-    // }
 
     if (isolation_level != READ_UNCOMMITED) {
         for(auto &[x, y]: change_logs) {
