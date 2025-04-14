@@ -22,8 +22,8 @@ using namespace std;
 // Special structure implemented for database
 class Database_Struct {
     public:
-        int recent_commit;   // Sequence of commit            
-        deque<int> recent_write;    // Sequence of writes (among uncommited transactions)
+        int recent_commit;              // Sequence of commit            
+        deque<int> recent_write;        // Sequence of writes (among uncommited transactions)
         map<int, int> commit_value;
         map<int, int> commit_id_write;
 
@@ -187,7 +187,7 @@ class Database {
 
                 auto &commit_values = pair.second.commit_value;
                 for (auto it = commit_values.begin(); it != commit_values.end(); ) {
-                    if (it->first < min_live && it->first != pair.second.recent_commit && required_last_commits.find(it->first) == required_last_commits.end()) {
+                    if ((it->first < min_live) && (it->first != pair.second.recent_commit) && (required_last_commits.find(it->first) == required_last_commits.end())) {
                         it = commit_values.erase(it);
                     } else {
                         ++it;
