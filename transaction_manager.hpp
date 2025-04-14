@@ -2,6 +2,7 @@
 
 #ifndef _TRANSACTION_MANAGER_HPP_
 #define _TRANSACTION_MANAGER_HPP_
+
 #include <iostream>
 #include <vector>
 #include <map>
@@ -11,6 +12,8 @@
 #include <mutex>
 #include <deque>
 #include <set>
+#include <unistd.h>
+#include <thread>
 
 using namespace std;
 
@@ -213,7 +216,7 @@ class TransactionManager {
         map<int, int> last_write;
     
     public:
-        TransactionManager(Database&, int);
+        TransactionManager(Database& db, int il = READ_UNCOMMITED);
 
         ~TransactionManager();
         

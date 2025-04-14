@@ -1,6 +1,9 @@
 run:
-	g++ mainfile.cpp -o tm
-	./tm
+	mkdir build
+	cd build && cmake .. && make
 
+exec:
+	cd build && ./TransactionManager
+	
 clean:
-	rm -f tm
+	rm -R build

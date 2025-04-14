@@ -1,8 +1,6 @@
 #include "transaction_manager.hpp"
-#include <unistd.h>
-#include <thread>
 
-TransactionManager::TransactionManager(Database& db, int il = READ_UNCOMMITED): db(db),  isolation_level(il), last_commit_transaction(0), finished(0) {
+TransactionManager::TransactionManager(Database& db, int il): db(db),  isolation_level(il), last_commit_transaction(0), finished(0) {
     transaction_id = db.get_transaction();
     if (il == REPEATABLE_READ){
             last_commit_transaction = db.get_last_transact();
