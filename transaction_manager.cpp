@@ -2,32 +2,13 @@
 #include <unistd.h>
 #include <thread>
 
-/*
-TO be implemented -
-    -> READ UNCOMMITED -
-        => read (check)
-        => rollback
-    
-    -> READ COMMITED -
-        => read
-    
-    -> SERIALIZABLE
-        => read
-    
-    -> REPEATABLE READ
-        => read
-    
-    -> Check which isolation levels should discard on conflicting commits
-*/
-
-/*
-Main structure changes ->
-    -> last write for READ_UNCOMMITED
-*/
-
 TransactionManager::TransactionManager(Database& db, int il = READ_UNCOMMITED): db(db),  isolation_level(il), last_commit_transaction(0), finished(0) {
     transaction_id = db.get_transaction();
     if (il == REPEATABLE_READ) last_commit_transaction = db.get_last_transact();
+}
+
+TransactionManager::~TransactionManager() {
+    rollback();
 }
 
 int TransactionManager::read(int key) {
@@ -126,6 +107,9 @@ void TransactionManager::commit() {
             // cout<< "T" << transaction_id << " aborted\n";
         }
         db.unlock_mutex();
+        db.finish_transaction(transaction_id);
+
+        finished = 1;
     }
     else {
         for(auto &[x, y]: change_logs) {

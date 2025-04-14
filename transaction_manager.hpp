@@ -22,8 +22,8 @@ using namespace std;
 // Special structure implemented for database
 class Database_Struct {
     public:
-        int recent_commit;               
-        deque<int> recent_write;
+        int recent_commit;   // Sequence of commit            
+        deque<int> recent_write;    // Sequence of writes (among uncommited transactions)
         map<int, int> commit_value;
 
         Database_Struct(){
@@ -173,18 +173,20 @@ class Database {
 // Transaction Manager class
 class TransactionManager {
     private:
-        int transaction_id;
         Database &db;           // Global database
         int isolation_level;
+        int transaction_id;
         int last_commit_transaction;
-
+    
         int finished;
-
+        
         map<int, int> change_logs;
         map<int, int> last_write;
     
     public:
         TransactionManager(Database&, int);
+
+        ~TransactionManager();
         
         int read(int );
         

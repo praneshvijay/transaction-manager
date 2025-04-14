@@ -193,7 +193,7 @@ void DemoSerializable() {
     cout << "T1 started" << endl;
     
     thread t = thread(serializable_thread);
-    
+
     cout << "T1 reads key 6: " << t1.read(6) << endl;
     t1.write(6, 600);
     cout << "T1 writes 600 to key 6" << endl;
@@ -219,15 +219,15 @@ int main() {
     thread gc = thread(GarbageCollector);
     gc.detach();
     // Demo4();
-    // DemoReadUncommitted_DirtyReads();
-    // DemoReadUncommitted_NonRepeatableReads();
+    DemoReadUncommitted_DirtyReads();
+    DemoReadUncommitted_NonRepeatableReads();
     
-    // DemoReadCommitted_DirtyReads();
-    // DemoReadCommitted_NonRepeatableReads();
+    DemoReadCommitted_DirtyReads();
+    DemoReadCommitted_NonRepeatableReads();
     
     DemoRepeatableRead_NonRepeatableReadsPrevention();
     
-    // DemoSerializable();
+    DemoSerializable();
     cout<<endl;
     
     return 0;
