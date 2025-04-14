@@ -41,7 +41,8 @@ int TransactionManager::read(int key) {
             auto it = change_logs.lower_bound(key);
             if (it != change_logs.end()) val.first = change_logs[key];
             else {
-                val = db.read(key, transaction_id);
+                // printf("%d\n", transaction_id);
+                val = db.read(key, transaction_id-1);
             }
             // cout<<"T"<<transaction_id<<" reads "<<val.first<<endl;
             return val.first;
@@ -115,6 +116,7 @@ void TransactionManager::commit() {
         for(auto &[x, y]: change_logs) {
             if (isolation_level != READ_UNCOMMITED) db.write(x, y, transaction_id);
             db.commit(x, transaction_id);
+            // cout << transaction_id << " " << x << " " << y << endl;
         }
     
         last_write.clear();

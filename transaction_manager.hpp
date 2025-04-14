@@ -25,11 +25,12 @@ class Database_Struct {
         int recent_commit;   // Sequence of commit            
         deque<int> recent_write;    // Sequence of writes (among uncommited transactions)
         map<int, int> commit_value;
+        map<int, int> commit_id_write;
 
         Database_Struct(){
             recent_write.clear();
-            recent_write.push_back(-1);
             commit_value.clear();
+            commit_id_write.clear();
         }
 };
 
@@ -37,7 +38,7 @@ class Database_Struct {
 class Database {
     private:
         map<int, Database_Struct> data;
-        int last_transaction;
+        deque<int> last_transactions;
         int next_transaction;   // Global transaction ID
         
         mutex db_mutex;
@@ -45,7 +46,9 @@ class Database {
         set<int> live_transactions;
     
     public:
-        Database(): last_transaction(0), next_transaction(1) {}
+        Database(): next_transaction(1) {
+            last_transactions.push_back(0);
+        }
 
         int get_transaction() {
             lock_guard<mutex> lock(db_mutex);
@@ -55,33 +58,42 @@ class Database {
 
         int get_last_transact() {
             lock_guard<mutex> lock(db_mutex);
-            return last_transaction;
+            return last_transactions.back();
         }
 
         pair<int, int> read(int key, int transaction_id) {
             lock_guard<mutex> lock(db_mutex);
             pair<int, int> val;
-            if (transaction_id > -1) {
-                auto it1 = data.lower_bound(key);
-                if (it1 == data.end()) {
-                    val.second = 0;
-                }
-
-                auto it = data[key].commit_value.lower_bound(transaction_id+1);
-                if (it == data[key].commit_value.begin()) {
-                    val.second = 0;
-                } else {
-                    val.second = 1;
-                    it--;
-                    val.first = it->second;
-                }
+            auto it1 = data.lower_bound(key);
+            if (it1 == data.end()) {
+                val.first = 0;
+                val.second = 0;
             } else {
-                auto it1 = data.lower_bound(key);
-                if (it1 == data.end()) {
+                if (transaction_id > -1) {
+                    int flag = 0;
+                    val.first = 0;
                     val.second = 0;
-                } else {
+
+                    for(auto it=last_transactions.rbegin(); it != last_transactions.rend(); it++) {
+                        if (*it == transaction_id) flag = 1;
+
+                        if (data[key].commit_id_write[*it] && flag) {
+                            val.second = *it;
+                            val.first = data[key].commit_value[*it];
+                            break;
+                        }
+                    }
+                } else if ((transaction_id == -1) && (data[key].recent_write.empty() == 0)) {
                     val.second = data[key].recent_write.back();
                     val.first = data[key].commit_value[data[key].recent_write.back()];
+                } else {
+                    for(auto it=last_transactions.rbegin(); it != last_transactions.rend(); it++) {
+                        if (data[key].commit_id_write[*it]) {
+                            val.second = *it;
+                            val.first = data[key].commit_value[*it];
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -91,12 +103,13 @@ class Database {
         void write(int key, int value, int transact_id, int bypass = 0) {
             if(!bypass) lock_guard<mutex> lock(db_mutex);
             data[key].commit_value[transact_id] = value;
+            data[key].commit_id_write[transact_id] = 1;
             data[key].recent_write.push_back(transact_id);  
         }
 
         int fetch_last_write(int key, int bypass = 0) {
             if(!bypass) lock_guard<mutex> lock(db_mutex);
-            return data[key].recent_write.back();
+            return data[key].recent_commit;
         }
 
         void commit(int key, int transaction_id, int bypass = 0) {
@@ -109,6 +122,8 @@ class Database {
             
             auto it = data.begin();
             while (it != data.end()) {
+                it->second.commit_id_write[transaction_id] = 0;
+
                 auto it1 = it->second.commit_value.lower_bound(transaction_id);
                 if (it1 != it->second.commit_value.end()) {
                     it->second.commit_value.erase(it1, it->second.commit_value.end());
@@ -132,7 +147,7 @@ class Database {
         void finish_transaction(int transaction_id) {
             lock_guard<mutex> lock(db_mutex);
             live_transactions.erase(transaction_id);
-            last_transaction = max(transaction_id, last_transaction);
+            last_transactions.push_back(transaction_id);
         }
 
         void lock_mutex() {
