@@ -50,8 +50,34 @@ class Database {
             return last_transaction;
         }
 
-        int read() {
+        pair<int, int> read(int key, int transaction_id) {
             lock_guard<mutex> lock(db_mutex);
+            pair<int, int> val;
+            if (transaction_id > -1) {
+                auto it1 = data.lower_bound(key);
+                if (it1 == data.end()) {
+                    val.second = 0;
+                }
+
+                auto it = data[key].commit_value.lower_bound(transaction_id);
+                if (it == data[key].commit_value.begin()) {
+                    val.second = 0;
+                } else {
+                    val.second = 1;
+                    it--;
+                    val.first = it->second;
+                }
+            } else {
+                auto it1 = data.lower_bound(key);
+                if (it1 == data.end()) {
+                    val.second = 0;
+                } else {
+                    val.second = data[key].recent_write;
+                    val.first = data[key].commit_value[data[key].recent_write];
+                }
+            }
+
+            return val;
         }
 
         void write(int key, int value, int transact_id) {
@@ -77,21 +103,6 @@ class Database {
             lock_guard<mutex> lock(db_mutex);
             last_transaction = max(transaction_id, last_transaction);
         }
-
-        // int read(const int& key) {
-        //     if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
-        //     return data[key][recent_commit];
-        // }
-
-        // int read_commit(const int& key) {
-        //     if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
-        //     return data[key][recent_commit];
-        // }
-
-        // void write(const int& key, int value, int transaction_id) {
-        //     if (!_serializable_ts) lock_guard<mutex> lock(db_mutex);
-        //     data[key][recent_commit] = value;            // Update main data
-        // }
 };
 
 void GarbageCollector() {
@@ -114,8 +125,7 @@ class TransactionManager {
     public:
         TransactionManager(Database&, int);
         
-        template<typename... Args>
-        int read(Args... args);
+        int read(int );
         
         void write(int, int);
 

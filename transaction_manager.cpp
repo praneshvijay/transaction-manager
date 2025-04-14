@@ -4,36 +4,48 @@
 
 /*
 TO be implemented -
-    === Important - research pending ===
-    -> Database structure, Garbage collector process
-    -> Read exact commit value
-    -> Rollback
+    -> READ UNCOMMITED -
+        => read (check)
+        => rollback
+    
+    -> READ COMMITED -
+        => read
+    
+    -> SERIALIZABLE
+        => read
+    
+    -> REPEATABLE READ
+        => read
+    
+    -> Check which isolation levels should discard on conflicting commits
+*/
 
-    -> Read Commited - (Deadlock detection)
-    -> Repeatable Read - (Optimized snapshot creation, Commit)
+/*
+Main structure changes ->
+    -> last write for READ_UNCOMMITED
 */
 
 TransactionManager::TransactionManager(Database& db, int il = READ_UNCOMMITED): db(db),  isolation_level(il), last_commit_transaction(0), finished(0) {
     transaction_id = db.get_transaction();
-    if (il == SERIALIZABLE) last_commit_transaction = db.get_last_transact();
+    if (il == REPEATABLE_READ) last_commit_transaction = db.get_last_transact();
 }
 
-template<typename... Args>
-int TransactionManager::read(Args... args) {
+int TransactionManager::read(int key) {
     if (finished) return 0;
 
     switch(isolation_level) {
         case READ_UNCOMMITED:
-            return db.read(args...);
-            break;
+            pair<int, int> val = db.read(key, -1);
+            return val.first;
         case READ_COMMITED:
-            return db.read(args...);
+            pair<int, int> val = db.read(key, -2);
+            return val.first;
             break;
         case SERIALIZABLE:
-            return db.read(args...);
+            // return db.read(key, transaction_id);
             break;
         case REPEATABLE_READ:
-            return db.read(args...);
+            // return db.read(key, transaction_id);
             break;
     }
 
@@ -63,15 +75,27 @@ void TransactionManager::write(int key, int value) {
 void TransactionManager::commit() {
     if (finished) return;
 
-    switch(isolation_level) {
-        case READ_UNCOMMITED:
-            break;
-        case READ_COMMITED:
-            break;
-        case SERIALIZABLE:
-            break;
-        case REPEATABLE_READ:
-            break;
+    // switch(isolation_level) {
+    //     case READ_UNCOMMITED:
+    //         break;
+    //     case READ_COMMITED:
+    //         break;
+    //     case SERIALIZABLE:
+    //         for(auto &[x, y]: change_logs) {
+    //             db.write(x, y, transaction_id);
+    //         }
+    //         break;
+    //     case REPEATABLE_READ:
+    //         for(auto &[x, y]: change_logs) {
+    //             db.write(x, y, transaction_id);
+    //         }
+    //         break;
+    // }
+
+    if (isolation_level != READ_UNCOMMITED) {
+        for(auto &[x, y]: change_logs) {
+            db.write(x, y, transaction_id);
+        }
     }
 
     last_write.clear();
