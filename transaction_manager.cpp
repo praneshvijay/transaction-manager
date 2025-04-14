@@ -97,6 +97,7 @@ void TransactionManager::write(int key, int value) {
             change_logs[key] = value;
             break;
     }
+    cout <<"T"<<transaction_id<<" writes "<<value<<endl;
 }
 
 void TransactionManager::commit() {
@@ -116,8 +117,9 @@ void TransactionManager::commit() {
                 db.write(x, y, transaction_id, 1);
                 db.commit(x, transaction_id, 1);
             }
+            cout<< "T" << transaction_id << " committed\n";
         }
-        else cout<< "Transaction aborted due to concurrent modification of data\n";
+        else cout<< "T" << transaction_id << " aborted\n";
         db.unlock_mutex();
     }
     else {
@@ -131,6 +133,7 @@ void TransactionManager::commit() {
         db.finish_transaction(transaction_id);
     
         finished = 1;
+        cout<< "T" << transaction_id << " committed\n";
     }
 }
 

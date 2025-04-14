@@ -57,26 +57,37 @@ void Demo3() {  // Repeatable Read
 void Demo4(){
     TransactionManager t1(db, READ_COMMITED), t2(db, READ_COMMITED);
 
-    cout << t1.read(1) << endl;
-    cout << "2: " <<  t2.read(1) << endl;
+    cout << "T1 reads " << t1.read(1) << endl;
+    cout << "T2 reads " << t2.read(1) << endl;
 
     t1.write(1, 200);
+    cout << "T1 writes 200" << endl;
 
-    cout << t1.read(1) << endl;
-    cout << "2: " <<  t2.read(1) << endl;
+    cout << "T1 reads " << t1.read(1) << endl;
+    cout << "T2 reads " << t2.read(1) << endl;
+
     t1.commit();
-    cout << "2: " <<  t2.read(1) << endl;
+
+    cout << "T2 reads " << t2.read(1) << endl;
 
     t2.write(1, 300);
+    cout << "T2 writes 300" << endl;
 
+    cout << "T1 reads " << t1.read(1) << endl;
     
-    cout << "2: " <<  t2.read(1) << endl;
-
     t2.commit();
-
 }
 
+void GarbageCollector() {
+    while(1){
+        sleep(10);
+        db.garbage_collector();
+    }
+}
+
+
 int main() {
+    thread gc = thread(GarbageCollector);
     Demo4();
 
     return 0;

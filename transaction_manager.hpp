@@ -10,6 +10,7 @@
 #include <fstream>
 #include <mutex>
 #include <deque>
+#include <set>
 
 using namespace std;
 
@@ -40,12 +41,15 @@ class Database {
         int next_transaction;   // Global transaction ID
         
         mutex db_mutex;
+
+        set<int> live_transactions;
     
     public:
         Database(): last_transaction(0), next_transaction(1) {}
 
         int get_transaction() {
             lock_guard<mutex> lock(db_mutex);
+            live_transactions.insert(next_transaction);
             return next_transaction++;
         }
 
@@ -127,6 +131,7 @@ class Database {
 
         void finish_transaction(int transaction_id) {
             lock_guard<mutex> lock(db_mutex);
+            live_transactions.erase(transaction_id);
             last_transaction = max(transaction_id, last_transaction);
         }
 
@@ -137,11 +142,33 @@ class Database {
         void unlock_mutex() {
             db_mutex.unlock();
         }
-};
 
-void GarbageCollector() {
-    // Implemented later for database
-}
+        void garbage_collector(){
+            int min_live = live_transactions.empty() ? next_transaction : *live_transactions.begin();
+
+            for (auto &pair : data) {
+                auto &recent_write = pair.second.recent_write;
+                for (auto it = recent_write.begin(); it != recent_write.end(); ) {
+                    if (*it != pair.second.recent_commit && *it < min_live) {
+                        it = recent_write.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+
+                auto &commit_values = pair.second.commit_value;
+                for (auto it = commit_values.begin(); it != commit_values.end(); ) {
+                    if (it->first < min_live && it->first != pair.second.recent_commit) {
+                        it = commit_values.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+            }
+
+        }
+
+};
 
 // Transaction Manager class
 class TransactionManager {
