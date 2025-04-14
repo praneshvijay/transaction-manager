@@ -67,7 +67,7 @@ class Database {
                     val.second = 0;
                 }
 
-                auto it = data[key].commit_value.lower_bound(transaction_id);
+                auto it = data[key].commit_value.lower_bound(transaction_id+1);
                 if (it == data[key].commit_value.begin()) {
                     val.second = 0;
                 } else {

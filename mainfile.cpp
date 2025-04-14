@@ -225,9 +225,9 @@ int main() {
     // DemoReadCommitted_DirtyReads();
     // DemoReadCommitted_NonRepeatableReads();
     
-    // DemoRepeatableRead_NonRepeatableReadsPrevention();
+    DemoRepeatableRead_NonRepeatableReadsPrevention();
     
-    DemoSerializable();
+    // DemoSerializable();
     cout<<endl;
     
     return 0;
