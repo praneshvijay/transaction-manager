@@ -9,6 +9,7 @@
 #include <chrono>
 #include <fstream>
 #include <mutex>
+#include <deque>
 
 using namespace std;
 
@@ -20,10 +21,13 @@ using namespace std;
 // Special structure implemented for database
 class Database_Struct {
     public:
-        int recent_write;               // Change it to special structure
+        // int recent_write;               // Change it to special structure
+        deque<int> recent_write;
         map<int, int> commit_value;
 
-        Database_Struct(): recent_write(-1) {
+        Database_Struct(){
+            recent_write.clear();
+            recent_write.push_back(-1);
             commit_value.clear();
         }
 };
@@ -35,7 +39,7 @@ class Database {
         int last_transaction;
         int next_transaction;   // Global transaction ID
         
-        mutex db_mutex, trans_id_mutex;
+        mutex db_mutex;
     
     public:
         Database(): last_transaction(-1), next_transaction(1) {}
@@ -72,8 +76,8 @@ class Database {
                 if (it1 == data.end()) {
                     val.second = 0;
                 } else {
-                    val.second = data[key].recent_write;
-                    val.first = data[key].commit_value[data[key].recent_write];
+                    val.second = data[key].recent_write.back();
+                    val.first = data[key].commit_value[data[key].recent_write.back()];
                 }
             }
 
@@ -83,12 +87,12 @@ class Database {
         void write(int key, int value, int transact_id) {
             lock_guard<mutex> lock(db_mutex);
             data[key].commit_value[transact_id] = value;
-            data[key].recent_write = transact_id;
+            data[key].recent_write.push_back(transact_id);  
         }
 
         int fetch_last_write(int key) {
             lock_guard<mutex> lock(db_mutex);
-            return data[key].recent_write;
+            return data[key].recent_write.back();
         }
 
         void commit() {
