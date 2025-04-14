@@ -43,6 +43,7 @@ class Database {
         mutex db_mutex;
 
         set<int> live_transactions;
+        map<int,int> required_last_commits; // for repeatable read so that garbage collector doesn't delete
     
     public:
         Database(): last_transaction(0), next_transaction(1) {}
@@ -143,13 +144,26 @@ class Database {
             db_mutex.unlock();
         }
 
+        void set_required_commit(int transaction_id) {
+            lock_guard<mutex> lock(db_mutex);
+            required_last_commits[transaction_id]++;
+        }
+
+        void remove_required_commit(int transaction_id) {
+            lock_guard<mutex> lock(db_mutex);
+            required_last_commits[transaction_id]--;
+            if (required_last_commits[transaction_id] == 0) {
+                required_last_commits.erase(transaction_id);
+            }
+        }
+
         void garbage_collector(){
             int min_live = live_transactions.empty() ? next_transaction : *live_transactions.begin();
 
             for (auto &pair : data) {
                 auto &recent_write = pair.second.recent_write;
                 for (auto it = recent_write.begin(); it != recent_write.end(); ) {
-                    if (*it != pair.second.recent_commit && *it < min_live) {
+                    if (*it != pair.second.recent_commit && *it < min_live && required_last_commits.find(*it) == required_last_commits.end()) {
                         it = recent_write.erase(it);
                     } else {
                         ++it;
@@ -158,7 +172,7 @@ class Database {
 
                 auto &commit_values = pair.second.commit_value;
                 for (auto it = commit_values.begin(); it != commit_values.end(); ) {
-                    if (it->first < min_live && it->first != pair.second.recent_commit) {
+                    if (it->first < min_live && it->first != pair.second.recent_commit && required_last_commits.find(it->first) == required_last_commits.end()) {
                         it = commit_values.erase(it);
                     } else {
                         ++it;

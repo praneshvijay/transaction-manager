@@ -4,8 +4,11 @@
 
 TransactionManager::TransactionManager(Database& db, int il = READ_UNCOMMITED): db(db),  isolation_level(il), last_commit_transaction(0), finished(0) {
     transaction_id = db.get_transaction();
-    if (il == REPEATABLE_READ) last_commit_transaction = db.get_last_transact();
-}
+    if (il == REPEATABLE_READ){
+            last_commit_transaction = db.get_last_transact();
+            db.set_required_commit(last_commit_transaction);
+        }
+    }
 
 TransactionManager::~TransactionManager() {
     rollback();
@@ -119,6 +122,9 @@ void TransactionManager::commit() {
     
         last_write.clear();
         change_logs.clear();
+        if(isolation_level == REPEATABLE_READ){
+            db.remove_required_commit(last_commit_transaction);
+        }
         db.finish_transaction(transaction_id);
     
         finished = 1;
