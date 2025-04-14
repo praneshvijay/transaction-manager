@@ -34,10 +34,11 @@ int TransactionManager::read(int key) {
     if (finished) return 0;
 
     switch(isolation_level) {
-        case READ_UNCOMMITED:
+        case READ_UNCOMMITED:{
             pair<int, int> val = db.read(key, -1);
             return val.first;
-        case READ_COMMITED:
+        }
+        case READ_COMMITED:{
             pair<int, int> val = db.read(key, -2);
             
             if (val.second == last_write[key]) {
@@ -46,24 +47,32 @@ int TransactionManager::read(int key) {
             }
 
             return val.first;
-        case SERIALIZABLE:
-            pair<int, int> val = db.read(key, transaction_id);
-            
-            if (val.second) {
-                auto it = change_logs.lower_bound(key);
-                if (it != change_logs.end()) val.first = change_logs[key];
+        }
+        case SERIALIZABLE:{
+            int sleep_time = 1;
+            while(1){
+                if(db.get_last_transact() == transaction_id - 1) break;
+                sleep(sleep_time);
+                sleep_time++;
             }
-
+            pair<int, int> val;
+            auto it = change_logs.lower_bound(key);
+            if (it != change_logs.end()) val.first = change_logs[key];
+            else {
+                val = db.read(key, transaction_id);
+            }
             return val.first;
-        case REPEATABLE_READ:
+        }
+        case REPEATABLE_READ:{
             pair<int, int> val;
             auto it = change_logs.lower_bound(key);
             if (it != change_logs.end()) val.first = change_logs[key];
             else {
                 val = db.read(key, last_commit_transaction);
             }
-
+            return val.first;
             break;
+        }
     }
 
     return 0;
@@ -75,6 +84,7 @@ void TransactionManager::write(int key, int value) {
     switch(isolation_level) {
         case READ_UNCOMMITED:
             db.write(key, value, transaction_id);
+            change_logs[key] = value;
             break;
         case READ_COMMITED:
             last_write[key] = db.fetch_last_write(key);
@@ -92,25 +102,45 @@ void TransactionManager::write(int key, int value) {
 void TransactionManager::commit() {
     if (finished) return;
 
-    if (isolation_level != READ_UNCOMMITED) {
+    if(isolation_level == READ_COMMITED){
+        db.lock_mutex();
+        int flag = 0;
         for(auto &[x, y]: change_logs) {
-            db.write(x, y, transaction_id);
+            if(last_write[x] != db.fetch_last_write(x, 1)){
+                flag = 1;
+                break;
+            }
         }
+        if(!flag){
+            for(auto &[x, y]: change_logs) {
+                db.write(x, y, transaction_id, 1);
+                db.commit(x, transaction_id, 1);
+            }
+        }
+        else cout<< "Transaction aborted due to concurrent modification of data\n";
+        db.unlock_mutex();
     }
-
-    last_write.clear();
-    change_logs.clear();
-    db.finish_transaction(transaction_id);
-
-    finished = 1;
+    else {
+        for(auto &[x, y]: change_logs) {
+            if (isolation_level != READ_UNCOMMITED) db.write(x, y, transaction_id);
+            db.commit(x, transaction_id);
+        }
+    
+        last_write.clear();
+        change_logs.clear();
+        db.finish_transaction(transaction_id);
+    
+        finished = 1;
+    }
 }
 
-void TransactionManager::rollback() {
+void TransactionManager::rollback() { 
     if (finished) return;
 
     if (isolation_level == READ_UNCOMMITED) {
         // Remove changes made in database
-    }
+        db.rollback(transaction_id);
+    }   
 
     last_write.clear();
     change_logs.clear();

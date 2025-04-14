@@ -21,7 +21,7 @@ using namespace std;
 // Special structure implemented for database
 class Database_Struct {
     public:
-        // int recent_write;               // Change it to special structure
+        int recent_commit;               
         deque<int> recent_write;
         map<int, int> commit_value;
 
@@ -42,7 +42,7 @@ class Database {
         mutex db_mutex;
     
     public:
-        Database(): last_transaction(-1), next_transaction(1) {}
+        Database(): last_transaction(0), next_transaction(1) {}
 
         int get_transaction() {
             lock_guard<mutex> lock(db_mutex);
@@ -84,28 +84,58 @@ class Database {
             return val;
         }
 
-        void write(int key, int value, int transact_id) {
-            lock_guard<mutex> lock(db_mutex);
+        void write(int key, int value, int transact_id, int bypass = 0) {
+            if(!bypass) lock_guard<mutex> lock(db_mutex);
             data[key].commit_value[transact_id] = value;
             data[key].recent_write.push_back(transact_id);  
         }
 
-        int fetch_last_write(int key) {
-            lock_guard<mutex> lock(db_mutex);
+        int fetch_last_write(int key, int bypass = 0) {
+            if(!bypass) lock_guard<mutex> lock(db_mutex);
             return data[key].recent_write.back();
         }
 
-        void commit() {
-
+        void commit(int key, int transaction_id, int bypass = 0) {
+            if(!bypass) lock_guard<mutex> lock(db_mutex);
+            data[key].recent_commit = transaction_id;
         }
 
-        void rollback() {
+        void rollback(int transaction_id) {
+            lock_guard<mutex> lock(db_mutex);
+            
+            auto it = data.begin();
+            while (it != data.end()) {
+                auto it1 = it->second.commit_value.lower_bound(transaction_id);
+                if (it1 != it->second.commit_value.end()) {
+                    it->second.commit_value.erase(it1, it->second.commit_value.end());
+                }
+                ++it;
+            }
 
+            // remove from deque recent_write
+            for (auto &pair : data) {
+                auto &recent_write = pair.second.recent_write;
+                for (auto it = recent_write.begin(); it != recent_write.end(); ) {
+                    if (*it == transaction_id) {
+                        it = recent_write.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+            }
         }
 
         void finish_transaction(int transaction_id) {
             lock_guard<mutex> lock(db_mutex);
             last_transaction = max(transaction_id, last_transaction);
+        }
+
+        void lock_mutex() {
+            db_mutex.lock();
+        }
+
+        void unlock_mutex() {
+            db_mutex.unlock();
         }
 };
 
