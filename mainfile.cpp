@@ -225,20 +225,42 @@ void GarbageCollector() {
     }
 }
 
+void demo_thread(){
+    TransactionManager t2(db, SERIALIZABLE);
+    cout << "T2 started" << endl;
+    t2.write(1, 100);
+    t2.commit();
+}
+
+void Demo(){
+    TransactionManager t1(db, SERIALIZABLE);
+    cout << "T1 started" << endl;
+
+    thread t = thread(demo_thread);
+
+    t1.read(1);
+
+    t1.read(1);
+    
+    t1.read(1);
+    t1.commit();
+    t.join();
+}
 
 int main() {
     thread gc = thread(GarbageCollector);
     gc.detach();
     // Demo4();
-    DemoReadUncommitted_DirtyReads();
-    DemoReadUncommitted_NonRepeatableReads();
+    // DemoReadUncommitted_DirtyReads();
+    // DemoReadUncommitted_NonRepeatableReads();
     
-    DemoReadCommitted_DirtyReads();
-    DemoReadCommitted_NonRepeatableReads();
+    // DemoReadCommitted_DirtyReads();
+    // DemoReadCommitted_NonRepeatableReads();
     
-    DemoRepeatableRead_NonRepeatableReadsPrevention();
+    // DemoRepeatableRead_NonRepeatableReadsPrevention();
     
-    DemoSerializable();
+    // DemoSerializable();
+    Demo();
     cout<<endl;
     
     return 0;
