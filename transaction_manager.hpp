@@ -197,7 +197,6 @@ class Database {
                     }
                 }
             }
-
         }
 
 };
